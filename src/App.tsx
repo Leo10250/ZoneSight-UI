@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "/vite.svg";
 import "./App.css";
 
 type Metrics = {
@@ -39,18 +37,17 @@ function App() {
     }, [metrics]);
 
     return (
-        <div className="min-h-screen p-6 flex flex-col gap-4">
-            <h1 className="text-2xl font-bold">Real-Time Object Detection</h1>
+        <div>
+            <h1>Real-Time Object Detection</h1>
 
-            <div className="flex gap-6">
+            <div>
                 <img
                     src="http://localhost:8000/video"
                     alt="live"
-                    className="rounded-xl shadow"
                     style={{ maxWidth: 720, border: "1px solid #eee" }}
                 />
 
-                <div className="flex flex-col gap-3">
+                <div>
                     <div>
                         <div>
                             Status:{" "}
@@ -66,7 +63,7 @@ function App() {
                         </div>
                     </div>
                     <div>
-                        <div className="font-semibold mb-1">Counts</div>
+                        <div>Counts</div>
                         <div>{countsStr}</div>
                     </div>
                 </div>
