@@ -15,7 +15,7 @@ function App() {
         ws.onmessage = (ev) => {
             try {
                 setMetrics(JSON.parse(ev.data));
-            } catch {}
+            } catch { /* empty */ }
         };
         return () => {
             ws.close();
