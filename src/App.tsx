@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
-
-type Metrics = {
-    ts: number;
-    fps: number;
-    img_shape: [number, number];
-    counts: Record<string, number>;
-};
+import type { Metrics } from "./types/metrics";
 
 function App() {
     const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -35,6 +29,8 @@ function App() {
             .map(([k, v]) => `${k}: ${v}`);
         return parts.length ? parts.join("  •  ") : "none";
     }, [metrics]);
+
+    const dets = metrics?.detections ?? [];
 
     return (
         <div>
@@ -65,6 +61,21 @@ function App() {
                     <div>
                         <div>Counts</div>
                         <div>{countsStr}</div>
+                    </div>
+
+                    {/* quick proof that tracking works */}
+                    <div style={{ marginTop: 8 }}>
+                        <div>Detections (first 5)</div>
+                        <ul style={{ listStyle: "none" }}>
+                            {dets.slice(0, 5).map((d) => (
+                                <li
+                                    key={`${d.tracking_id}-${d.xyxy.join(",")}`}
+                                >
+                                    <b>ID</b>: {d.tracking_id ?? "—"} - <b>Object</b>: {d.cls}{" "}
+                                    - <b>Confidence Level</b>: {(d.conf * 100).toFixed(0)}%
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 </div>
             </div>
