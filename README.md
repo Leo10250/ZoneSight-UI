@@ -1,69 +1,25 @@
-# React + TypeScript + Vite
+# ZoneSight UI — Real-time People & Occupancy Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite + TypeScript frontend for [ZoneSight API](https://github.com/Leo10250/ZoneSight-API).  
+Displays live annotated MJPEG video and real-time detection metrics over WebSockets.  
+Built as the foundation for zone-based occupancy, dwell time analytics, and event history.
 
-Currently, two official plugins are available:
+## Stack
+- Frontend: React, Vite, TypeScript, WebSocket
+- Styling: CSS
+- Dev: Node.js 18+, Vite dev server with LAN support
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Setup (PowerShell / Windows)
+```powershell
+# clone repo
+git clone https://github.com/Leo10250/ZoneSight-UI.git
+cd ZoneSight-UI
 
-## Expanding the ESLint configuration
+# install deps
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+# set backend API base URL (update to your LAN IP for phone viewing)
+echo VITE_API_BASE_URL=http://localhost:8000 > .env.local
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+# run dev server (LAN access)
+npm run dev -- --host
