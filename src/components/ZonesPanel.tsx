@@ -6,20 +6,24 @@ import ZonesEditor from "./ZonesEditor";
 
 type Props = { width: number; height: number };
 
-function ZonesPanel({ width, height }: Props) {
+export default function ZonesPanel({ width, height }: Props) {
   const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const MAX_POINTS = Number(import.meta.env.VITE_MAX_ZONE_POINTS ?? 20);
+
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [connected, setConnected] = useState(false);
+
   const [zones, setZones] = useState<Zone[]>([]);
   const [editing, setEditing] = useState(false);
   const [draftZones, setDraftZones] = useState<Zone[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // NEW: show coachmark until first point is placed
+  // Show after Add Zone; hide on Save/Cancel
   const [showCoach, setShowCoach] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
 
+  // Bootstrap
   useEffect(() => {
     fetch(`${API}/zones`)
       .then((r) => r.json())
@@ -27,13 +31,20 @@ function ZonesPanel({ width, height }: Props) {
         setZones(z);
         setActiveId(z[0]?.id ?? null);
       })
-      .catch(() => { setZones([]); setActiveId(null); });
+      .catch(() => {
+        setZones([]);
+        setActiveId(null);
+      });
 
     const ws = new WebSocket(`${API.replace(/^http/, "ws")}/ws`);
     wsRef.current = ws;
     ws.onopen = () => setConnected(true);
     ws.onclose = () => setConnected(false);
-    ws.onmessage = (ev) => { try { setMetrics(JSON.parse(ev.data)); } catch {} };
+    ws.onmessage = (ev) => {
+      try {
+        setMetrics(JSON.parse(ev.data));
+      } catch {}
+    };
     return () => ws.close();
   }, [API]);
 
@@ -61,13 +72,15 @@ function ZonesPanel({ width, height }: Props) {
     setDraftZones(draft);
     setEditing(true);
     if (!activeId && draft.length) setActiveId(draft[0].id);
-    setShowCoach(false);
+    setShowCoach(false); // not for generic “Edit Zones”
   }
 
   async function handleSave() {
     const bad = draftZones.filter((z) => z.points.length < 3);
     if (bad.length) {
-      alert(`Each zone needs ≥3 points: ${bad.map((z) => z.name || z.id).join(", ")}`);
+      alert(
+        `Each zone needs ≥3 points: ${bad.map((z) => z.name || z.id).join(", ")}`
+      );
       return;
     }
     await saveZones(draftZones);
@@ -80,13 +93,12 @@ function ZonesPanel({ width, height }: Props) {
     setShowCoach(false);
   }
 
-  // Always add a zone in *editing* mode so the user can place points right away
+  // Add zone then immediately allow point placement
   function handleAddZone() {
     const base = `zone-${zones.length + draftZones.length + 1}`;
     const id = prompt("New zone id:", base) || base;
     const name = prompt("New zone name:", id + "-name") || id;
 
-    // build a draft baseline if we weren't editing yet
     let draft = draftZones;
     if (!editing) {
       draft = zones.map((z) => ({
@@ -104,17 +116,17 @@ function ZonesPanel({ width, height }: Props) {
     setDraftZones(next);
     setEditing(true);
     setActiveId(id);
-    setShowCoach(true);       // show banner until first click
+    setShowCoach(true);
   }
 
   const shownZones = editing ? draftZones : zones;
-
-  // Disable Save until all polygons have >= 3 points
   const saveDisabled = editing && draftZones.some((z) => z.points.length < 3);
 
   const countsStr = useMemo(() => {
     if (!metrics) return "—";
-    const parts = Object.entries(metrics.counts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`);
+    const parts = Object.entries(metrics.counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}: ${v}`);
     return parts.length ? parts.join("  •  ") : "none";
   }, [metrics]);
 
@@ -122,13 +134,27 @@ function ZonesPanel({ width, height }: Props) {
 
   return (
     <>
-      <div style={{ position: "absolute", inset: 0 }}>
-        {/* Overlay layer */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
+      {/* Overlay/editor pinned to the video area only */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          width,
+          height, // limit overlay to the image, not the banner area
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: "none",
+          }}
+        >
           <ZonesOverlay zones={shownZones} width={width} height={height} />
         </div>
 
-        {/* Editor layer */}
         {editing && (
           <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
             <ZonesEditor
@@ -137,30 +163,12 @@ function ZonesPanel({ width, height }: Props) {
               width={width}
               height={height}
               activeId={activeId}
-              // Hides the coachmark after the first point is added
-              onFirstPoint={() => setShowCoach(false)}
+              maxPoints={MAX_POINTS}
             />
           </div>
         )}
 
-        {/* Coachmark */}
-        {editing && showCoach && activeId && (
-          <div style={{
-            position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none",
-            display: "flex", justifyContent: "center", alignItems: "flex-start"
-          }}>
-            <div style={{
-              marginTop: 16, background: "rgba(255,255,255,0.95)",
-              border: "1px solid #ddd", boxShadow: "0 8px 24px rgba(0,0,0,.12)",
-              borderRadius: 12, padding: "10px 14px", fontSize: 14
-            }}>
-              <b>Click on the video</b> to add points for <code>{activeId}</code>.
-              Need at least <b>3 points</b>. Press <kbd>Backspace</kbd> to undo.
-            </div>
-          </div>
-        )}
-
-        {/* Controls */}
+        {/* Controls over the video */}
         <div
           style={{
             position: "absolute",
@@ -174,43 +182,94 @@ function ZonesPanel({ width, height }: Props) {
         >
           {!editing ? (
             <>
-              <button onClick={startEditing} style={{ marginRight: 8 }}>Edit Zones</button>
+              <button onClick={startEditing} style={{ marginRight: 8 }}>
+                Edit Zones
+              </button>
               <button onClick={handleAddZone}>Add Zone</button>
             </>
           ) : (
             <>
-              <button onClick={handleSave} style={{ marginRight: 8 }} disabled={saveDisabled}>
+              <button
+                onClick={handleSave}
+                style={{ marginRight: 8 }}
+                disabled={saveDisabled}
+                title={saveDisabled ? "Each zone needs at least 3 points" : ""}
+              >
                 Save
               </button>
-              <button onClick={handleCancel} style={{ marginRight: 8 }}>Cancel</button>
+              <button onClick={handleCancel} style={{ marginRight: 8 }}>
+                Cancel
+              </button>
               <button onClick={handleAddZone}>Add Zone</button>
             </>
           )}
 
           <div style={{ marginTop: 8 }}>
             <label>Active zone:&nbsp;</label>
-            <select value={activeId ?? ""} onChange={(e) => setActiveId(e.target.value || null)}>
+            <select
+              value={activeId ?? ""}
+              onChange={(e) => setActiveId(e.target.value || null)}
+            >
               <option value="">(none)</option>
               {shownZones.map((z) => (
-                <option key={z.id} value={z.id}>{z.name}</option>
+                <option key={z.id} value={z.id}>
+                  {z.name}
+                </option>
               ))}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Status panel (unchanged) */}
+      {/* Coach banner — BELOW the video (best UX), normal flow */}
+      {editing && showCoach && activeId && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            width,
+            maxWidth: "100%",
+            marginTop: 8,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "rgba(255,255,255,0.98)",
+              border: "1px solid #ddd",
+              boxShadow: "0 8px 24px rgba(0,0,0,.08)",
+              borderRadius: 12,
+              padding: "10px 14px",
+              fontSize: 14,
+            }}
+          >
+            <b>Click on the video</b> to add points for <code>{activeId}</code>.
+            Place up to <b>{MAX_POINTS}</b> points (min 3 to save). Press{" "}
+            <kbd>Backspace</kbd> to undo.
+          </div>
+        </div>
+      )}
+
+      {/* Status panel */}
       <div style={{ marginTop: 12 }}>
-        <div>Status: <b>{connected ? "WebSocket ✅" : "Disconnected ❌"}</b></div>
-        <div>FPS: <b>{metrics?.fps ?? "—"}</b></div>
-        <div>Image: <b>{metrics?.img_shape?.join("×") ?? "—"}</b></div>
+        <div>
+          Status: <b>{connected ? "WebSocket ✅" : "Disconnected ❌"}</b>
+        </div>
+        <div>
+          FPS: <b>{metrics?.fps ?? "—"}</b>
+        </div>
+        <div>
+          Image: <b>{metrics?.img_shape?.join("×") ?? "—"}</b>
+        </div>
         <div>Counts: {countsStr}</div>
         <div style={{ marginTop: 8 }}>
           <div>Detections (first 5)</div>
           <ul style={{ listStyle: "none", paddingLeft: 0 }}>
             {dets.slice(0, 5).map((d) => (
               <li key={`${d.tracking_id}-${d.xyxy.join(",")}`}>
-                #{d.tracking_id ?? "—"} {d.cls} {(d.conf * 100).toFixed(0)}% {d.zone ? `· ${d.zone}` : ""}
+                #{d.tracking_id ?? "—"} {d.cls} {(d.conf * 100).toFixed(0)}%{" "}
+                {d.zone ? `· ${d.zone}` : ""}
               </li>
             ))}
           </ul>
@@ -219,5 +278,3 @@ function ZonesPanel({ width, height }: Props) {
     </>
   );
 }
-
-export default ZonesPanel;
