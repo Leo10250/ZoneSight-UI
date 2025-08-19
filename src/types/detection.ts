@@ -5,4 +5,5 @@ export interface Detection {
     cls: string;
     conf: number,
     xyxy: BBox;
+    zone?: string | null;
 }
