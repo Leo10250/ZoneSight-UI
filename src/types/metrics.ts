@@ -6,4 +6,5 @@ export interface Metrics {
     img_shape: [number, number];
     counts: Record<string, number>;
     detections: Detection[];
+    occupancy?: Record<string, number>;
 }
