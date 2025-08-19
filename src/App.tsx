@@ -17,11 +17,7 @@ function App() {
                             e.currentTarget.naturalHeight,
                         ])
                     }
-                    style={{
-                        display: "block",
-                        border: "1px solid #eee",
-                        maxWidth: 720,
-                    }}
+                    style={{ display: "block", border: "1px solid #eee" }}
                 />
                 {imgSize[0] > 0 && (
                     <ZonesPanel width={imgSize[0]} height={imgSize[1]} />
