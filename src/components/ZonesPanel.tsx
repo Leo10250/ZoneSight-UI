@@ -14,6 +14,10 @@ function ZonesPanel({ width, height }: Props) {
   const [editing, setEditing] = useState(false);
   const [draftZones, setDraftZones] = useState<Zone[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+
+  // NEW: show coachmark until first point is placed
+  const [showCoach, setShowCoach] = useState(false);
+
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -21,20 +25,15 @@ function ZonesPanel({ width, height }: Props) {
       .then((r) => r.json())
       .then((z: Zone[]) => {
         setZones(z);
-        setActiveId((z && z[0]?.id) || null);
+        setActiveId(z[0]?.id ?? null);
       })
-      .catch(() => {
-        setZones([]);
-        setActiveId(null);
-      });
+      .catch(() => { setZones([]); setActiveId(null); });
 
     const ws = new WebSocket(`${API.replace(/^http/, "ws")}/ws`);
     wsRef.current = ws;
     ws.onopen = () => setConnected(true);
     ws.onclose = () => setConnected(false);
-    ws.onmessage = (ev) => {
-      try { setMetrics(JSON.parse(ev.data)); } catch {}
-    };
+    ws.onmessage = (ev) => { try { setMetrics(JSON.parse(ev.data)); } catch {} };
     return () => ws.close();
   }, [API]);
 
@@ -61,8 +60,8 @@ function ZonesPanel({ width, height }: Props) {
     }));
     setDraftZones(draft);
     setEditing(true);
-    // FIX: ensure we have an active zone when editing starts
     if (!activeId && draft.length) setActiveId(draft[0].id);
+    setShowCoach(false);
   }
 
   async function handleSave() {
@@ -73,44 +72,49 @@ function ZonesPanel({ width, height }: Props) {
     }
     await saveZones(draftZones);
     setEditing(false);
+    setShowCoach(false);
   }
 
   function handleCancel() {
     setEditing(false);
+    setShowCoach(false);
   }
 
+  // Always add a zone in *editing* mode so the user can place points right away
   function handleAddZone() {
     const base = `zone-${zones.length + draftZones.length + 1}`;
     const id = prompt("New zone id:", base) || base;
-    console.log("id = " + id);
     const name = prompt("New zone name:", id + "-name") || id;
-    console.log("name = " + name);
-    const target = editing ? draftZones : zones;
-    console.log("1");
-    const setter = editing ? setDraftZones : setZones;
-    console.log("2");
-    if (target.find((z) => z.id === id)) {
-        console.log("2.1");
+
+    // build a draft baseline if we weren't editing yet
+    let draft = draftZones;
+    if (!editing) {
+      draft = zones.map((z) => ({
+        ...z,
+        points: z.points.map((p) => [p[0], p[1]] as [number, number]),
+      }));
+    }
+
+    if (draft.find((z) => z.id === id)) {
       alert(`Zone id "${id}" already exists`);
-      console.log("2.2");
       return;
     }
-    console.log("3");
-    const next = [...target, { id, name, points: [] as [number, number][] }];
-    console.log("4");
-    setter(next);
-    console.log("5");
-    setActiveId(id); // FIX: select the new zone so clicks add points
-    console.log("6");
+
+    const next = [...draft, { id, name, points: [] as [number, number][] }];
+    setDraftZones(next);
+    setEditing(true);
+    setActiveId(id);
+    setShowCoach(true);       // show banner until first click
   }
 
   const shownZones = editing ? draftZones : zones;
 
+  // Disable Save until all polygons have >= 3 points
+  const saveDisabled = editing && draftZones.some((z) => z.points.length < 3);
+
   const countsStr = useMemo(() => {
     if (!metrics) return "—";
-    const parts = Object.entries(metrics.counts)
-      .sort((a, b) => b[1] - a[1])
-      .map(([k, v]) => `${k}: ${v}`);
+    const parts = Object.entries(metrics.counts).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v}`);
     return parts.length ? parts.join("  •  ") : "none";
   }, [metrics]);
 
@@ -119,25 +123,44 @@ function ZonesPanel({ width, height }: Props) {
   return (
     <>
       <div style={{ position: "absolute", inset: 0 }}>
-        {/* Overlay layer (no pointer events) */}
+        {/* Overlay layer */}
         <div style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
           <ZonesOverlay zones={shownZones} width={width} height={height} />
         </div>
 
-        {/* Editor layer (clickable) */}
+        {/* Editor layer */}
         {editing && (
-          <div style={{ position: "absolute", inset: 0, zIndex: 2, pointerEvents: "auto" }}>
+          <div style={{ position: "absolute", inset: 0, zIndex: 2 }}>
             <ZonesEditor
               zones={draftZones}
               setZones={setDraftZones}
               width={width}
               height={height}
               activeId={activeId}
+              // Hides the coachmark after the first point is added
+              onFirstPoint={() => setShowCoach(false)}
             />
           </div>
         )}
 
-        {/* Controls layer (must be on top) */}
+        {/* Coachmark */}
+        {editing && showCoach && activeId && (
+          <div style={{
+            position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none",
+            display: "flex", justifyContent: "center", alignItems: "flex-start"
+          }}>
+            <div style={{
+              marginTop: 16, background: "rgba(255,255,255,0.95)",
+              border: "1px solid #ddd", boxShadow: "0 8px 24px rgba(0,0,0,.12)",
+              borderRadius: 12, padding: "10px 14px", fontSize: 14
+            }}>
+              <b>Click on the video</b> to add points for <code>{activeId}</code>.
+              Need at least <b>3 points</b>. Press <kbd>Backspace</kbd> to undo.
+            </div>
+          </div>
+        )}
+
+        {/* Controls */}
         <div
           style={{
             position: "absolute",
@@ -146,47 +169,37 @@ function ZonesPanel({ width, height }: Props) {
             background: "#fff",
             padding: 8,
             border: "1px solid #ddd",
-            zIndex: 3,                 // FIX: keep above editor SVG
-            pointerEvents: "auto",     // FIX: ensure clickable
+            zIndex: 5,
           }}
         >
           {!editing ? (
             <>
-              <button onClick={startEditing} style={{ marginRight: 8 }}>
-                Edit Zones
-              </button>
+              <button onClick={startEditing} style={{ marginRight: 8 }}>Edit Zones</button>
               <button onClick={handleAddZone}>Add Zone</button>
             </>
           ) : (
             <>
-              <button onClick={handleSave} style={{ marginRight: 8 }}>
+              <button onClick={handleSave} style={{ marginRight: 8 }} disabled={saveDisabled}>
                 Save
               </button>
-              <button onClick={handleCancel} style={{ marginRight: 8 }}>
-                Cancel
-              </button>
+              <button onClick={handleCancel} style={{ marginRight: 8 }}>Cancel</button>
               <button onClick={handleAddZone}>Add Zone</button>
             </>
           )}
 
           <div style={{ marginTop: 8 }}>
             <label>Active zone:&nbsp;</label>
-            <select
-              value={activeId ?? ""}
-              onChange={(e) => setActiveId(e.target.value || null)}
-            >
+            <select value={activeId ?? ""} onChange={(e) => setActiveId(e.target.value || null)}>
               <option value="">(none)</option>
               {shownZones.map((z) => (
-                <option key={z.id} value={z.id}>
-                  {z.name}
-                </option>
+                <option key={z.id} value={z.id}>{z.name}</option>
               ))}
             </select>
           </div>
         </div>
       </div>
 
-      {/* Status panel */}
+      {/* Status panel (unchanged) */}
       <div style={{ marginTop: 12 }}>
         <div>Status: <b>{connected ? "WebSocket ✅" : "Disconnected ❌"}</b></div>
         <div>FPS: <b>{metrics?.fps ?? "—"}</b></div>
