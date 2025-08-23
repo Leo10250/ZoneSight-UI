@@ -294,7 +294,9 @@ export default function ZonesPanel({ width, height }: Props) {
                 </div>
                 {metrics?.recent_events?.length ? (
                     <div style={{ marginTop: 8 }}>
-                        <div>Recent zone events</div>
+                        <div style={{fontWeight: "bolder"}}>
+                            Recent zone events
+                        </div>
                         <ul
                             style={{
                                 listStyle: "none",
@@ -320,8 +322,16 @@ export default function ZonesPanel({ width, height }: Props) {
                 ) : null}
 
                 <div style={{ marginTop: 8 }}>
-                    <div>Detections (first 5)</div>
-                    <ul style={{ listStyle: "none", paddingLeft: 0 }}>
+                    <div style={{fontWeight: "bolder"}}>
+                        Detections (first 5)
+                    </div>
+                    <ul
+                        style={{
+                            listStyle: "none",
+                            paddingLeft: 0,
+                            marginTop: 0,
+                        }}
+                    >
                         {dets.slice(0, 5).map((d) => (
                             <li key={`${d.tracking_id}-${d.xyxy.join(",")}`}>
                                 #{d.tracking_id ?? "—"} {d.cls}{" "}
