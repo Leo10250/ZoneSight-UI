@@ -290,7 +290,7 @@ export default function ZonesPanel({ width, height }: Props) {
                 </div>
                 <div>Counts: {countsStr}</div>
                 <div>
-                    Occupancy: <b>{occStr}</b>
+                    Human Occupancy: <b>{occStr}</b>
                 </div>
                 {metrics?.recent_events?.length ? (
                     <div style={{ marginTop: 8 }}>
