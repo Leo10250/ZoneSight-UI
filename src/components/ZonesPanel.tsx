@@ -17,6 +17,7 @@ export default function ZonesPanel({ width, height }: Props) {
     const [editing, setEditing] = useState(false);
     const [draftZones, setDraftZones] = useState<Zone[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [zonesError, setZonesError] = useState<string | null>(null);
 
     // Show after Add Zone; hide on Save/Cancel
     const [showCoach, setShowCoach] = useState(false);
@@ -26,14 +27,21 @@ export default function ZonesPanel({ width, height }: Props) {
     // Bootstrap
     useEffect(() => {
         fetch(`${API}/zones`)
-            .then((r) => r.json())
+            .then((r) => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
             .then((z: Zone[]) => {
                 setZones(z);
                 setActiveId(z[0]?.id ?? null);
+                setZonesError(null);
             })
-            .catch(() => {
-                setZones([]);
+            .catch((err) => {
+                console.error("[zones] load failed:", err);
+                setZones([]); // safe fallback
                 setActiveId(null);
+                setShowCoach(false);
+                setZonesError("Could not load zones from the server.");
             });
 
         const ws = new WebSocket(`${API.replace(/^http/, "ws")}/ws`);
@@ -43,7 +51,9 @@ export default function ZonesPanel({ width, height }: Props) {
         ws.onmessage = (ev) => {
             try {
                 setMetrics(JSON.parse(ev.data));
-            } catch {}
+            } catch {
+                setZonesError("Websocket onMessage Error!");
+            }
         };
         return () => ws.close();
     }, [API]);
@@ -276,6 +286,45 @@ export default function ZonesPanel({ width, height }: Props) {
                 </div>
             )}
 
+            {zonesError && (
+                <div
+                    role="alert"
+                    style={{
+                        marginTop: 8,
+                        padding: 8,
+                        border: "1px solid #f3c",
+                        background: "#fff0f6",
+                        borderRadius: 8,
+                    }}
+                >
+                    ⚠️ {zonesError}{" "}
+                    <button
+                        onClick={() => {
+                            setZonesError(null);
+                            // re-run the same fetch
+                            fetch(`${API}/zones`)
+                                .then((r) => {
+                                    if (!r.ok)
+                                        throw new Error(`HTTP ${r.status}`);
+                                    return r.json();
+                                })
+                                .then((z: Zone[]) => {
+                                    setZones(z);
+                                    setActiveId(z[0]?.id ?? null);
+                                })
+                                .catch((err) => {
+                                    console.error("[zones] retry failed:", err);
+                                    setZonesError(
+                                        "Retry failed. Is the API running?"
+                                    );
+                                });
+                        }}
+                    >
+                        Retry
+                    </button>
+                </div>
+            )}
+
             {/* Status panel */}
             <div style={{ marginTop: 12 }}>
                 <div>
@@ -294,7 +343,7 @@ export default function ZonesPanel({ width, height }: Props) {
                 </div>
                 {metrics?.recent_events?.length ? (
                     <div style={{ marginTop: 8 }}>
-                        <div style={{fontWeight: "bolder"}}>
+                        <div style={{ fontWeight: "bolder" }}>
                             Recent zone events
                         </div>
                         <ul
@@ -322,7 +371,7 @@ export default function ZonesPanel({ width, height }: Props) {
                 ) : null}
 
                 <div style={{ marginTop: 8 }}>
-                    <div style={{fontWeight: "bolder"}}>
+                    <div style={{ fontWeight: "bolder" }}>
                         Detections (first 5)
                     </div>
                     <ul
