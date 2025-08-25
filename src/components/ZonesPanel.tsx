@@ -142,7 +142,7 @@ export default function ZonesPanel({ width, height }: Props) {
 
     const countsStr = useMemo(() => {
         if (!metrics) return "—";
-        const parts = Object.entries(metrics.counts)
+        const parts = Object.entries(metrics.object_counts)
             .sort((a, b) => b[1] - a[1])
             .map(([k, v]) => `${k}: ${v}`);
         return parts.length ? parts.join("  •  ") : "none";
@@ -356,7 +356,7 @@ export default function ZonesPanel({ width, height }: Props) {
                             {metrics.recent_events.slice(0, 5).map((e, i) => (
                                 <li key={i}>
                                     [
-                                    {new Date(e.ts * 1000).toLocaleTimeString()}
+                                    {new Date(e.timestamp * 1000).toLocaleTimeString()}
                                     ] {e.type.toUpperCase()} #{e.track_id}{" "}
                                     {e.type === "transfer"
                                         ? `${e.from ?? "—"} → ${e.zone ?? "—"}`

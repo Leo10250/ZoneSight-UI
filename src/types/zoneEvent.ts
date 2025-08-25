@@ -1,5 +1,5 @@
 export interface ZoneEvent {
-  ts: number; // epoch seconds
+  timestamp: number; // epoch seconds
   type: "entry" | "exit" | "transfer";
   track_id: number;
   zone?: string | null;
